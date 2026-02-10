@@ -32,14 +32,14 @@
 // ========================================
 
 // WiFi Credentials
-#define WIFI_SSID "HUAWEI-2.4G-ZUm2"      // Your WiFi network name
-#define WIFI_PASSWORD "qmnp4mS7"  // Your WiFi password
+#define WIFI_SSID " "      // Your WiFi network name
+#define WIFI_PASSWORD " "  // Your WiFi password
 
 // Firebase Credentials
 #define API_KEY "AIzaSyC7XlN2DM38tq19LJuT8WyGhcOVcRxfZec"  // From Firebase Project Settings
 #define DATABASE_URL "https://diabetic-care-tracker-default-rtdb.asia-southeast1.firebasedatabase.app"  // Include https://
-#define USER_EMAIL "jjbondoc07@gmail.com"  // Your login email
-#define USER_PASSWORD "IM01131062"  // Your login password
+#define USER_EMAIL " "  // Your login email
+#define USER_PASSWORD " "  // Your login password
 
 // ========================================
 // PIN CONFIGURATION
