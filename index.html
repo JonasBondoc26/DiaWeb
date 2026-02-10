@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DiaWeb • Patient Health Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:wght@600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="auth-screen">
+        <div class="auth-container">
+            <div class="auth-brand">
+                <img src="DiaWeb-logo.png" alt="DiaWeb Logo" style="width: 200px; height: auto; margin-bottom: 20px;">
+                <p class="brand-subtitle">Ensuring Timely Medication, Accurate Monitoring, and Better Diabetes Care</p>
+            </div>
+            
+            <div id="loginAlert" class="alert"></div>
+            
+            <form id="loginForm" class="auth-form">
+                <div class="input-group">
+                    <label for="loginEmail">Email Address</label>
+                    <input type="email" id="loginEmail" required placeholder="your.email@example.com">
+                </div>
+                <div class="input-group">
+                    <label for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" required placeholder="Enter your password">
+                </div>
+                <button type="submit" class="btn btn-primary btn-large">Sign In</button>
+            </form>
+            
+            <div class="auth-divider">
+                <span>or</span>
+            </div>
+            
+            <button id="showRegister" class="btn btn-outline btn-large">Create New Account</button>
+        </div>
+    </div>
+
+    <!-- Registration Screen -->
+    <div id="registerScreen" class="auth-screen hidden">
+        <div class="auth-container">
+            <div class="auth-brand">
+                <img src="DiaWeb-logo.png" alt="DiaWeb Logo" style="width: 200px; height: auto; margin-bottom: 20px;">
+                <h1 class="brand-title">Create Account</h1>
+                <p class="brand-subtitle">Join DiaWeb today</p>
+            </div>
+            
+            <div id="registerAlert" class="alert"></div>
+            
+            <form id="registerForm" class="auth-form">
+                <div class="input-group">
+                    <label for="registerName">Full Name</label>
+                    <input type="text" id="registerName" required placeholder="John Doe">
+                </div>
+                <div class="input-group">
+                    <label for="registerEmail">Email Address</label>
+                    <input type="email" id="registerEmail" required placeholder="your.email@example.com">
+                </div>
+                <div class="input-group">
+                    <label for="registerPassword">Password</label>
+                    <input type="password" id="registerPassword" required placeholder="Create a strong password">
+                </div>
+                <button type="submit" class="btn btn-primary btn-large">Create Account</button>
+            </form>
+            
+            <div class="auth-divider">
+                <span>or</span>
+            </div>
+            
+            <button id="showLogin" class="btn btn-outline btn-large">Back to Sign In</button>
+        </div>
+    </div>
+
+    <!-- Dashboard -->
+    <div id="dashboard" class="dashboard">
+        <!-- App Header -->
+        <header class="app-header">
+            <div class="app-container">
+                <div class="header-content">
+                    <div class="header-brand">
+                        <img src="DiaWeb-logo.png" alt="DiaWeb" style="height: 40px; width: auto;">
+                        <div class="header-title">
+                            <p class="header-greeting">DiaWeb</p>
+                            <p id="userName" class="header-greeting">Welcome back</p>
+                        </div>
+                    </div>
+                    <button id="logoutBtn" class="btn-icon-text">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M13 3H16C16.5304 3 17.0391 3.21071 17.4142 3.58579C17.7893 3.96086 18 4.46957 18 5V15C18 15.5304 17.7893 16.0391 17.4142 16.4142C17.0391 16.7893 16.5304 17 16 17H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            <path d="M7 13L2 10L7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M2 10H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        <span>Sign Out</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main class="app-main">
+            <div class="app-container">
+                <div id="dashboardAlert" class="alert"></div>
+
+                <!-- Quick Stats -->
+                <section class="stats-grid">
+                    <div class="stat-card stat-primary">
+                        <div class="stat-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                <path d="M3 3v18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                <path d="M18 17l-5-5-3 3-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <p class="stat-label">Average Glucose</p>
+                            <p class="stat-value"><span id="avgBloodSugar">--</span> <span class="stat-unit">mg/dL</span></p>
+                            <p class="stat-trend">Last 30 readings</p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card stat-secondary">
+                        <div class="stat-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+                                <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <p class="stat-label">Latest Reading</p>
+                            <p class="stat-value"><span id="lastReading">--</span> <span class="stat-unit">mg/dL</span></p>
+                            <p class="stat-trend">Most recent</p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card stat-accent">
+                        <div class="stat-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
+                                <path d="M9 11l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <p class="stat-label">Medication Adherence</p>
+                            <p class="stat-value" id="medsTaken">0/0</p>
+                            <p class="stat-trend">Today's progress</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Main Content Grid -->
+                <div class="content-grid">
+                    <!-- Blood Sugar Monitoring -->
+                    <section class="card card-primary">
+                        <div class="card-header">
+                            <div class="card-title-group">
+                                <div class="card-icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                        <path d="M12 2L15.5 8.5L22 12L15.5 15.5L12 22L8.5 15.5L2 12L8.5 8.5L12 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                                    </svg>
+                                </div>
+                                <h2 class="card-title">Blood Glucose Monitor</h2>
+                            </div>
+                        </div>
+                        
+                        <div class="card-content">
+                            <div class="input-row">
+                                <div class="input-group">
+                                    <label for="bloodSugarValue">Reading (mg/dL)</label>
+                                    <input type="number" id="bloodSugarValue" placeholder="120" min="0" max="600">
+                                </div>
+                                <div class="input-group">
+                                    <label for="readingType">Type</label>
+                                    <select id="readingType">
+                                        <option value="fasting">Fasting</option>
+                                        <option value="before-meal">Before Meal</option>
+                                        <option value="after-meal">After Meal</option>
+                                        <option value="bedtime">Bedtime</option>
+                                    </select>
+                                </div>
+                                <button onclick="addBloodSugarReading()" class="btn btn-primary btn-icon">
+                                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                        <path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    </svg>
+                                    Add Reading
+                                </button>
+                            </div>
+                            
+                            <div class="readings-list" id="readingsList">
+                                <div class="empty-state">
+                                    <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                                        <circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="2" opacity="0.2"/>
+                                        <path d="M24 16v16M16 24h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    </svg>
+                                    <p>No readings recorded yet</p>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Medication Management -->
+                    <section class="card card-secondary">
+                        <div class="card-header">
+                            <div class="card-title-group">
+                                <div class="card-icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                        <rect x="3" y="6" width="18" height="12" rx="2" stroke="currentColor" stroke-width="2"/>
+                                        <path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" stroke="currentColor" stroke-width="2"/>
+                                        <circle cx="12" cy="12" r="2" fill="currentColor"/>
+                                    </svg>
+                                </div>
+                                <h2 class="card-title">Medication Schedule</h2>
+                            </div>
+                            <button onclick="openCalendarModal()" class="btn btn-secondary btn-icon">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                    <rect x="3" y="4" width="14" height="14" rx="2" stroke="currentColor" stroke-width="2"/>
+                                    <path d="M3 8h14M7 2v4M13 2v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                                Check Calendar
+                            </button>
+                        </div>
+                        
+                        <div class="card-content">
+                            <div class="medication-form">
+                                <div class="input-group">
+                                    <label for="medName">Medication Name</label>
+                                    <input type="text" id="medName" placeholder="e.g., Metformin">
+                                </div>
+                                <div class="input-row-2">
+                                    <div class="input-group">
+                                        <label for="medDosage">Dosage</label>
+                                        <input type="text" id="medDosage" placeholder="500mg">
+                                    </div>
+                                    <div class="input-group">
+                                        <label for="medTime">Time</label>
+                                        <input type="time" id="medTime">
+                                    </div>
+                                </div>
+                                <div class="input-group">
+                                    <label for="medFrequency">Frequency</label>
+                                    <select id="medFrequency">
+                                        <option value="daily">Once Daily</option>
+                                        <option value="twice-daily">Twice Daily</option>
+                                        <option value="three-times-daily">Three Times Daily</option>
+                                        <option value="weekly">Weekly</option>
+                                    </select>
+                                </div>
+                                <button onclick="addMedication()" class="btn btn-secondary btn-block">
+                                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                        <path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    </svg>
+                                    Add Medication
+                                </button>
+                            </div>
+                            
+                            <div class="medication-list" id="medicationList">
+                                <div class="empty-state">
+                                    <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                                        <circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="2" opacity="0.2"/>
+                                        <path d="M24 16v16M16 24h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    </svg>
+                                    <p>No medications scheduled</p>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Reminders -->
+                    <section class="card card-accent">
+                        <div class="card-header">
+                            <div class="card-title-group">
+                                <div class="card-icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                        <circle cx="12" cy="13" r="9" stroke="currentColor" stroke-width="2"/>
+                                        <path d="M12 9v4l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                        <path d="M9 3h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    </svg>
+                                </div>
+                                <h2 class="card-title">Reminders</h2>
+                            </div>
+                        </div>
+                        
+                        <div class="card-content">
+                            <div class="schedule-form">
+                                <div class="input-row-2">
+                                    <div class="input-group">
+                                        <label for="reminderTime">Time</label>
+                                        <input type="time" id="reminderTime">
+                                    </div>
+                                    <div class="input-group">
+                                        <label for="reminderDescription">Description</label>
+                                        <input type="text" id="reminderDescription" placeholder="Check glucose level">
+                                    </div>
+                                </div>
+                                <button onclick="addReminder()" class="btn btn-accent btn-block">
+                                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                        <path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    </svg>
+                                    Set Reminder
+                                </button>
+                            </div>
+                            
+                            <div class="schedule-list" id="scheduleList">
+                                <div class="empty-state">
+                                    <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                                        <circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="2" opacity="0.2"/>
+                                        <path d="M24 16v16M16 24h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    </svg>
+                                    <p>No reminders set</p>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- History Table -->
+                <section class="card card-full">
+                    <div class="card-header">
+                        <div class="card-title-group">
+                            <div class="card-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="currentColor" stroke-width="2"/>
+                                    <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                            </div>
+                            <h2 class="card-title">Medication History</h2>
+                        </div>
+                        <p class="card-subtitle">Last 7 days</p>
+                    </div>
+                    
+                    <div class="card-content">
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Date & Time</th>
+                                        <th>Medication</th>
+                                        <th>Dosage</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="historyBody">
+                                    <tr>
+                                        <td colspan="4">
+                                            <div class="empty-state-inline">No history available</div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <!-- Calendar Modal -->
+        <div id="calendarModal" class="modal">
+            <div class="modal-overlay" onclick="closeCalendarModal()"></div>
+            <div class="modal-container">
+                <div class="modal-header">
+                    <h2 class="modal-title">Medication Calendar</h2>
+                    <button onclick="closeCalendarModal()" class="btn-close">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="modal-content">
+                    <div class="calendar-controls">
+                        <button onclick="changeMonth(-1)" class="btn-calendar-nav">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M12 16L6 10L12 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+                        <h3 id="calendarMonthYear" class="calendar-month">January 2024</h3>
+                        <button onclick="changeMonth(1)" class="btn-calendar-nav">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M8 4L14 10L8 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="calendar-grid" id="calendarGrid">
+                        <!-- Calendar will be generated here -->
+                    </div>
+                    <div id="selectedDateDetails" class="selected-date-details hidden">
+                        <h4 id="selectedDateTitle" class="selected-date-title">Selected Date</h4>
+                        <div id="medicationsTakenList" class="medications-taken-list">
+                            <!-- Medication details will appear here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
+    <!-- Main JavaScript -->
+    <script src="script.js"></script>
+</body>
+</html>
