@@ -87,6 +87,7 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
     }
 });
 
+
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('loginEmail').value;
@@ -231,9 +232,14 @@ async function addMedication() {
     if (!currentUser) return;
 
     const name = document.getElementById('medName').value;
-    const dosage = document.getElementById('medDosage').value;
+    let dosage = document.getElementById('medDosage').value;
     const time = document.getElementById('medTime').value;
     const frequency = document.getElementById('medFrequency').value;
+
+    // Handle custom dosage
+    if (dosage === 'custom') {
+        dosage = document.getElementById('customDosage').value;
+    }
 
     if (!name || !dosage || !time) {
         showAlert('dashboardAlert', 'Please fill all medication fields', 'warning');
@@ -253,6 +259,8 @@ async function addMedication() {
         await database.ref(`medications/${currentUser.uid}`).push(medication);
         document.getElementById('medName').value = '';
         document.getElementById('medDosage').value = '';
+        document.getElementById('customDosage').value = '';
+        document.getElementById('customDosageGroup').style.display = 'none';
         document.getElementById('medTime').value = '';
         showAlert('dashboardAlert', '✓ Medication added successfully', 'success');
         loadMedications();
@@ -477,11 +485,12 @@ async function checkReminders() {
     const medSnapshot = await database.ref(`medications/${currentUser.uid}`).once('value');
     medSnapshot.forEach((child) => {
         const med = child.val();
+        const medId = child.key; // Get the medication ID
         if (med.time === currentTime) {
             playAlertSound();
             showAlert('dashboardAlert', `💊 Time to take: ${med.name} (${med.dosage})`, 'warning');
-            // Send notification to ESP8266
-            sendNotificationToESP('medication', `Time to take: ${med.name} (${med.dosage})`);
+            // Send notification to ESP8266 with medication ID
+            sendNotificationToESP('medication', `Time to take: ${med.name} (${med.dosage})`, medId);
         }
     });
 }
@@ -489,7 +498,7 @@ async function checkReminders() {
 // ===========================
 // ESP8266 NOTIFICATION SYSTEM
 // ===========================
-async function sendNotificationToESP(type, message) {
+async function sendNotificationToESP(type, message, medicationId = null) {
     if (!currentUser) return;
     
     const notificationId = database.ref().push().key;
@@ -501,6 +510,11 @@ async function sendNotificationToESP(type, message) {
         sent: true
     };
     
+    // Add medication ID if provided (for medication notifications)
+    if (medicationId) {
+        notification.medicationId = medicationId;
+    }
+    
     try {
         // Send to latest notification path (ESP8266 monitors this)
         await database.ref(`notifications/${currentUser.uid}/latest`).set(notification);
@@ -508,7 +522,7 @@ async function sendNotificationToESP(type, message) {
         // Also store in history
         await database.ref(`notifications/${currentUser.uid}/history/${notificationId}`).set(notification);
         
-        console.log('Notification sent to ESP8266:', type, message);
+        console.log('Notification sent to ESP8266:', type, message, medicationId ? `MedID: ${medicationId}` : '');
     } catch (error) {
         console.error('Error sending notification to ESP8266:', error);
     }
@@ -764,6 +778,25 @@ document.addEventListener('keydown', (e) => {
         if (modal.classList.contains('active')) {
             closeCalendarModal();
         }
+    }
+});
+
+// ===========================
+// DOSAGE DROPDOWN HANDLER
+// ===========================
+// Show/hide custom dosage input based on selection
+document.addEventListener('DOMContentLoaded', () => {
+    const dosageSelect = document.getElementById('medDosage');
+    const customDosageGroup = document.getElementById('customDosageGroup');
+    
+    if (dosageSelect) {
+        dosageSelect.addEventListener('change', (e) => {
+            if (e.target.value === 'custom') {
+                customDosageGroup.style.display = 'block';
+            } else {
+                customDosageGroup.style.display = 'none';
+            }
+        });
     }
 });
 

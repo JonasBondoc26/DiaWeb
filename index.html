@@ -55,7 +55,7 @@
             <form id="registerForm" class="auth-form">
                 <div class="input-group">
                     <label for="registerName">Full Name</label>
-                    <input type="text" id="registerName" required>
+                    <input type="text" id="registerName" required placeholder="John Doe">
                 </div>
                 <div class="input-group">
                     <label for="registerEmail">Email Address</label>
@@ -231,7 +231,51 @@
                                 <div class="input-row-2">
                                     <div class="input-group">
                                         <label for="medDosage">Dosage</label>
-                                        <input type="text" id="medDosage" placeholder="500mg">
+                                        <select id="medDosage">
+                                            <option value="">Select Dosage</option>
+                                            <optgroup label="Metformin (Common)">
+                                                <option value="250mg">250mg</option>
+                                                <option value="500mg">500mg</option>
+                                                <option value="850mg">850mg</option>
+                                                <option value="1000mg">1000mg</option>
+                                            </optgroup>
+                                            <optgroup label="Insulin (Units)">
+                                                <option value="5 units">5 units</option>
+                                                <option value="10 units">10 units</option>
+                                                <option value="15 units">15 units</option>
+                                                <option value="20 units">20 units</option>
+                                                <option value="25 units">25 units</option>
+                                                <option value="30 units">30 units</option>
+                                            </optgroup>
+                                            <optgroup label="Glipizide">
+                                                <option value="2.5mg">2.5mg</option>
+                                                <option value="5mg">5mg</option>
+                                                <option value="10mg">10mg</option>
+                                            </optgroup>
+                                            <optgroup label="Glyburide">
+                                                <option value="1.25mg">1.25mg</option>
+                                                <option value="2.5mg">2.5mg</option>
+                                                <option value="5mg">5mg</option>
+                                            </optgroup>
+                                            <optgroup label="Other Common Dosages">
+                                                <option value="25mg">25mg</option>
+                                                <option value="50mg">50mg</option>
+                                                <option value="75mg">75mg</option>
+                                                <option value="100mg">100mg</option>
+                                                <option value="150mg">150mg</option>
+                                                <option value="200mg">200mg</option>
+                                                <option value="300mg">300mg</option>
+                                                <option value="400mg">400mg</option>
+                                                <option value="500mg">500mg</option>
+                                            </optgroup>
+                                            <optgroup label="Custom">
+                                                <option value="custom">Custom (Enter Manually)</option>
+                                            </optgroup>
+                                        </select>
+                                    </div>
+                                    <div class="input-group" id="customDosageGroup" style="display: none;">
+                                        <label for="customDosage">Custom Dosage</label>
+                                        <input type="text" id="customDosage" placeholder="e.g., 750mg">
                                     </div>
                                     <div class="input-group">
                                         <label for="medTime">Time</label>
