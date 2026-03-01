@@ -11,56 +11,56 @@
 // ========================================
 
 // WiFi Credentials
-#define WIFI_SSID "YOUR_WIFI_SSID"      // Your WiFi network name
-#define WIFI_PASSWORD "YOUR_WIFI_PASSWORD"  // Your WiFi password
+#define WIFI_SSID "YOUR_WIFI_SSID"      
+#define WIFI_PASSWORD "YOUR_WIFI_PASSWORD"
 
 // Firebase Credentials
-#define API_KEY "YOUR_API_KEY"  // From Firebase Project Settings
-#define DATABASE_URL "YOUR_DATABASE_URL"  // Include https://
-#define USER_EMAIL "your@email.com"  // Your login email
-#define USER_PASSWORD "yourpassword"  // Your login password
+#define API_KEY "YOUR_API_KEY"  
+#define DATABASE_URL "YOUR_DATABASE_URL"  
+#define USER_EMAIL "your@email.com"  
+#define USER_PASSWORD "yourpassword"  
 
 // ========================================
 // PIN CONFIGURATION
 // ========================================
-#define BUZZER_PIN D1        // GPIO5 - Connect buzzer here
-#define LED_PIN LED_BUILTIN  // Built-in LED for visual feedback
-#define BUTTON_PIN D2        // Optional: Button to manually stop alarm (connect to GND)
+#define BUZZER_PIN D1        
+#define LED_PIN LED_BUILTIN  
+#define BUTTON_PIN D2        
 
 // ========================================
 // BUZZER PATTERNS & ALARM SETTINGS
 // ========================================
 // Pattern: {frequency, duration, pause}
 
-// Medication Reminder: 3 short beeps (repeating)
+// Medication Reminder: FASTER 3 short beeps (repeating)
 const int MEDICATION_PATTERN[][3] = {
-  {2000, 200, 100},
-  {2000, 200, 100},
-  {2000, 200, 1000}  // 1 second pause before repeat
+  {2500, 100, 50},
+  {2500, 100, 50},
+  {2500, 100, 300}
 };
 
-// Custom Reminder: 2 long beeps (repeating)
+// Custom Reminder
 const int REMINDER_PATTERN[][3] = {
-  {1500, 500, 200},
-  {1500, 500, 2000}  // 2 second pause before repeat
+  {1500, 300, 100},
+  {1500, 300, 500}
 };
 
-// High Blood Sugar: 4 medium beeps (repeating)
+// High Blood Sugar
 const int HIGH_GLUCOSE_PATTERN[][3] = {
   {2500, 150, 100},
   {2500, 150, 100},
   {2500, 150, 100},
-  {2500, 150, 1500}  // 1.5 second pause before repeat
+  {2500, 150, 500}
 };
 
-// Low Blood Sugar: 6 fast urgent beeps (repeating)
+// Low Blood Sugar
 const int LOW_GLUCOSE_PATTERN[][3] = {
-  {3000, 100, 50},
-  {3000, 100, 50},
-  {3000, 100, 50},
-  {3000, 100, 50},
-  {3000, 100, 50},
-  {3000, 100, 1000}  // 1 second pause before repeat
+  {3000, 80, 40},
+  {3000, 80, 40},
+  {3000, 80, 40},
+  {3000, 80, 40},
+  {3000, 80, 40},
+  {3000, 80, 300}
 };
 
 // ========================================
@@ -76,7 +76,7 @@ String currentAlarmType = "";
 String currentMedicationId = "";
 bool alarmActive = false;
 unsigned long lastAlarmCheck = 0;
-unsigned long alarmCheckInterval = 2000; // Check every 2 seconds during alarm
+unsigned long alarmCheckInterval = 500; // Check every 0.5 seconds during alarm (FASTER)
 
 // ========================================
 // SETUP
@@ -91,8 +91,8 @@ void setup() {
   // Initialize pins
   pinMode(BUZZER_PIN, OUTPUT);
   pinMode(LED_PIN, OUTPUT);
-  pinMode(BUTTON_PIN, INPUT_PULLUP); // Optional button
-  digitalWrite(LED_PIN, HIGH); // LED off initially
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  digitalWrite(LED_PIN, HIGH); 
   
   // Play welcome beep
   playWelcomeBeep();
@@ -137,6 +137,7 @@ void setup() {
 // MAIN LOOP
 // ========================================
 void loop() {
+
   // Check WiFi connection
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("WiFi disconnected! Reconnecting...");
@@ -145,11 +146,10 @@ void loop() {
   
   // If alarm is active, check if medication was taken
   if (alarmActive) {
-    // Check more frequently during alarm
+
     if (millis() - lastAlarmCheck >= alarmCheckInterval) {
       lastAlarmCheck = millis();
       
-      // Check if medication was marked as taken
       if (checkMedicationTaken()) {
         Serial.println("\n=================================");
         Serial.println("MEDICATION MARKED AS TAKEN!");
@@ -158,19 +158,19 @@ void loop() {
         
         stopAlarm();
       } else {
-        // Continue playing alarm
         playAlarmPattern();
       }
       
-      // Optional: Check button press to stop alarm manually
+      // Optional: Button to stop alarm manually
       if (digitalRead(BUTTON_PIN) == LOW) {
         Serial.println("\n=================================");
         Serial.println("BUTTON PRESSED - Stopping alarm");
         Serial.println("=================================\n");
         stopAlarm();
-        delay(500); // Debounce
+        delay(300);
       }
     }
+    
   } else {
     // Normal operation - check for new notifications every 5 seconds
     checkForNotifications();
@@ -187,92 +187,59 @@ void connectWiFi() {
   
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   
-  int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 30) {
+  while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
-    attempts++;
   }
   
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\nWiFi Connected!");
-    Serial.print("IP Address: ");
-    Serial.println(WiFi.localIP());
-  } else {
-    Serial.println("\nWiFi connection failed!");
-    Serial.println("Restarting in 5 seconds...");
-    delay(5000);
-    ESP.restart();
-  }
+  Serial.println("\nWiFi Connected!");
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.localIP());
 }
 
 // ========================================
 // CHECK FOR NOTIFICATIONS
 // ========================================
 void checkForNotifications() {
+
   String path = "/notifications/" + userId + "/latest";
   
   if (Firebase.RTDB.getJSON(&fbdo, path)) {
+
     if (fbdo.dataType() == "json") {
+
       FirebaseJson &json = fbdo.jsonObject();
       FirebaseJsonData result;
       
-      // Get notification ID
       json.get(result, "id");
       String notificationId = result.stringValue;
       
-      // Check if this is a new notification
       if (notificationId != lastNotificationId && notificationId.length() > 0) {
+
         lastNotificationId = notificationId;
         
-        // Get notification type
         json.get(result, "type");
         String notificationType = result.stringValue;
         
-        // Get notification message
-        json.get(result, "message");
-        String message = result.stringValue;
-        
-        // Get timestamp
-        json.get(result, "timestamp");
-        String timestamp = result.stringValue;
-        
-        // Get medication ID if it's a medication notification
         json.get(result, "medicationId");
         String medicationId = result.stringValue;
         
-        // Display notification info
         Serial.println("=================================");
         Serial.println("NEW NOTIFICATION RECEIVED!");
         Serial.println("=================================");
         Serial.print("Type: ");
         Serial.println(notificationType);
-        Serial.print("Message: ");
-        Serial.println(message);
-        Serial.print("Time: ");
-        Serial.println(timestamp);
-        if (medicationId.length() > 0) {
-          Serial.print("Medication ID: ");
-          Serial.println(medicationId);
-        }
         Serial.println("=================================");
-        Serial.println();
         
-        // Start continuous alarm for medication
         if (notificationType == "medication") {
           startAlarm(notificationType, medicationId);
         } else {
-          // For other types, just play pattern once
           playNotificationSound(notificationType);
         }
         
-        // Mark notification as acknowledged
         acknowledgeNotification(notificationId);
       }
     }
-  } else {
-    Serial.print("Failed to get notifications: ");
-    Serial.println(fbdo.errorReason());
   }
 }
 
@@ -285,13 +252,8 @@ void startAlarm(String type, String medId) {
   currentMedicationId = medId;
   lastAlarmCheck = millis();
   
-  Serial.println("\n╔═══════════════════════════════════╗");
-  Serial.println("║   ALARM STARTED - CONTINUOUS      ║");
-  Serial.println("║   Will stop when medication       ║");
-  Serial.println("║   is marked as taken              ║");
-  Serial.println("╚═══════════════════════════════════╝\n");
+  Serial.println("\nALARM STARTED - CONTINUOUS\n");
   
-  // Play first pattern immediately
   playAlarmPattern();
 }
 
@@ -303,93 +265,76 @@ void stopAlarm() {
   currentAlarmType = "";
   currentMedicationId = "";
   noTone(BUZZER_PIN);
-  digitalWrite(LED_PIN, HIGH); // LED off
+  digitalWrite(LED_PIN, HIGH);
   
   Serial.println("Alarm stopped. Returning to monitoring mode...\n");
 }
 
 // ========================================
-// PLAY ALARM PATTERN (CONTINUOUS)
+// PLAY ALARM PATTERN (FASTER, REPEATING)
 // ========================================
 void playAlarmPattern() {
-  digitalWrite(LED_PIN, LOW); // LED on during alarm
+  digitalWrite(LED_PIN, LOW);
   
   if (currentAlarmType == "medication") {
     playPattern(MEDICATION_PATTERN, 3);
   }
   
-  digitalWrite(LED_PIN, HIGH); // LED off
+  digitalWrite(LED_PIN, HIGH);
 }
 
 // ========================================
 // CHECK IF MEDICATION WAS TAKEN
 // ========================================
 bool checkMedicationTaken() {
+
   if (currentMedicationId.length() == 0) {
     return false;
   }
   
-  // Get today's date in MM/DD/YYYY format
-  String today = getCurrentDate();
-  
-  // Check medicationIntake for today
   String path = "/medicationIntake/" + userId;
   
   if (Firebase.RTDB.getJSON(&fbdo, path)) {
+
     if (fbdo.dataType() == "json") {
+
       FirebaseJson &json = fbdo.jsonObject();
-      
-      // Iterate through all intake records
       size_t len = json.iteratorBegin();
       FirebaseJson::IteratorValue value;
       
       for (size_t i = 0; i < len; i++) {
+
         value = json.valueAt(i);
-        
+
         if (value.type == FirebaseJson::JSON_OBJECT) {
+
           FirebaseJson intakeJson;
           intakeJson.setJsonData(value.value);
-          
-          FirebaseJsonData dateData, medIdData;
-          
-          // Get date and medicationId from this intake record
-          intakeJson.get(dateData, "date");
+
+          FirebaseJsonData medIdData;
           intakeJson.get(medIdData, "medicationId");
-          
-          String intakeDate = dateData.stringValue;
+
           String intakeMedId = medIdData.stringValue;
-          
-          // Check if this intake matches our current medication and today's date
-          if (intakeDate == today && intakeMedId == currentMedicationId) {
+
+          if (intakeMedId == currentMedicationId) {
             json.iteratorEnd();
-            return true; // Medication was taken today!
+            return true; 
           }
         }
       }
-      
+
       json.iteratorEnd();
     }
   }
   
-  return false; // Medication not yet taken
-}
-
-// ========================================
-// GET CURRENT DATE (MM/DD/YYYY)
-// ========================================
-String getCurrentDate() {
-  // Get current timestamp and convert to date
-  // For simplicity, we're checking recent intakes (last 24 hours)
-  unsigned long currentTime = millis();
-  
-  return ""; // Return empty to check any recent intake
+  return false;
 }
 
 // ========================================
 // PLAY NOTIFICATION SOUND (ONE-TIME)
 // ========================================
 void playNotificationSound(String type) {
-  digitalWrite(LED_PIN, LOW); // LED on during sound
+  digitalWrite(LED_PIN, LOW);
   
   if (type == "reminder") {
     playPattern(REMINDER_PATTERN, 2);
@@ -401,18 +346,19 @@ void playNotificationSound(String type) {
     playPattern(LOW_GLUCOSE_PATTERN, 6);
   } 
   else {
-    // Default pattern for unknown types
     playPattern(MEDICATION_PATTERN, 3);
   }
   
-  digitalWrite(LED_PIN, HIGH); // LED off
+  digitalWrite(LED_PIN, HIGH);
 }
 
 // ========================================
 // PLAY PATTERN
 // ========================================
 void playPattern(const int pattern[][3], int patternSize) {
+
   for (int i = 0; i < patternSize; i++) {
+
     int frequency = pattern[i][0];
     int duration = pattern[i][1];
     int pause = pattern[i][2];
@@ -428,25 +374,22 @@ void playPattern(const int pattern[][3], int patternSize) {
 // ACKNOWLEDGE NOTIFICATION
 // ========================================
 void acknowledgeNotification(String notificationId) {
+
   String path = "/notifications/" + userId + "/acknowledged/" + notificationId;
   
   FirebaseJson json;
   json.set("acknowledgedAt", String(millis()));
   json.set("device", "ESP8266_Buzzer");
   
-  if (Firebase.RTDB.setJSON(&fbdo, path, &json)) {
-    Serial.println("Notification acknowledged in Firebase");
-  } else {
-    Serial.print("Failed to acknowledge: ");
-    Serial.println(fbdo.errorReason());
-  }
+  Firebase.RTDB.setJSON(&fbdo, path, &json);
 }
 
 // ========================================
-// WELCOME BEEP (Rising tones)
+// WELCOME BEEP
 // ========================================
 void playWelcomeBeep() {
-  int frequencies[] = {262, 330, 392}; // C, E, G notes
+
+  int frequencies[] = {262, 330, 392};
   
   for (int i = 0; i < 3; i++) {
     tone(BUZZER_PIN, frequencies[i]);
