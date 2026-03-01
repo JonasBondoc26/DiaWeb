@@ -85,7 +85,7 @@ void setup() {
   Serial.begin(115200);
   Serial.println();
   Serial.println("=================================");
-  Serial.println("DiaWeb Continuous Alarm System");
+  Serial.println("DiaWeb");
   Serial.println("=================================");
   
   // Initialize pins
@@ -378,17 +378,9 @@ bool checkMedicationTaken() {
 // GET CURRENT DATE (MM/DD/YYYY)
 // ========================================
 String getCurrentDate() {
-  // This is a simplified version - in production, sync with NTP server
-  // For now, we'll check if ANY intake exists for this medication today
-  // The web app sets proper dates, so we just need to match
-  
   // Get current timestamp and convert to date
   // For simplicity, we're checking recent intakes (last 24 hours)
   unsigned long currentTime = millis();
-  
-  // Alternative: Check Firebase timestamp
-  // For this demo, we'll use a simpler check - just look for recent intake
-  // The web app will mark medication as taken with proper timestamp
   
   return ""; // Return empty to check any recent intake
 }
