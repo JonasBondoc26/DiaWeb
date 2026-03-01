@@ -77,6 +77,7 @@ String currentMedicationId = "";
 bool alarmActive = false;
 unsigned long lastAlarmCheck = 0;
 unsigned long alarmCheckInterval = 500; // Check every 0.5 seconds during alarm (FASTER)
+String alarmStartTimestamp = ""; // ISO timestamp when alarm started
 
 // ========================================
 // SETUP
@@ -252,6 +253,18 @@ void startAlarm(String type, String medId) {
   currentMedicationId = medId;
   lastAlarmCheck = millis();
   
+  // Record alarm start timestamp so web app can tag intake records
+  // We use a simple counter since ESP has no real-time clock
+  alarmStartTimestamp = String(millis());
+  
+  // Write alarm state to Firebase so web app knows alarm is active
+  String alarmPath = "/alarmState/" + userId;
+  FirebaseJson alarmJson;
+  alarmJson.set("active", true);
+  alarmJson.set("medicationId", medId);
+  alarmJson.set("alarmToken", alarmStartTimestamp);
+  Firebase.RTDB.setJSON(&fbdo, alarmPath, &alarmJson);
+  
   Serial.println("\nALARM STARTED - CONTINUOUS\n");
   
   playAlarmPattern();
@@ -264,8 +277,15 @@ void stopAlarm() {
   alarmActive = false;
   currentAlarmType = "";
   currentMedicationId = "";
+  alarmStartTimestamp = "";
   noTone(BUZZER_PIN);
   digitalWrite(LED_PIN, HIGH);
+  
+  // Clear alarm state in Firebase
+  String alarmPath = "/alarmState/" + userId;
+  FirebaseJson alarmJson;
+  alarmJson.set("active", false);
+  Firebase.RTDB.setJSON(&fbdo, alarmPath, &alarmJson);
   
   Serial.println("Alarm stopped. Returning to monitoring mode...\n");
 }
@@ -284,11 +304,11 @@ void playAlarmPattern() {
 }
 
 // ========================================
-// CHECK IF MEDICATION WAS TAKEN
+// CHECK IF MEDICATION WAS TAKEN (for THIS alarm session)
 // ========================================
 bool checkMedicationTaken() {
 
-  if (currentMedicationId.length() == 0) {
+  if (currentMedicationId.length() == 0 || alarmStartTimestamp.length() == 0) {
     return false;
   }
   
@@ -313,12 +333,18 @@ bool checkMedicationTaken() {
 
           FirebaseJsonData medIdData;
           intakeJson.get(medIdData, "medicationId");
-
           String intakeMedId = medIdData.stringValue;
 
           if (intakeMedId == currentMedicationId) {
-            json.iteratorEnd();
-            return true; 
+            // Only count this intake if it was tagged with our alarmToken
+            // (meaning the user pressed "Mark as Taken" while THIS alarm was active)
+            FirebaseJsonData tokenData;
+            intakeJson.get(tokenData, "alarmToken");
+            
+            if (tokenData.stringValue == alarmStartTimestamp) {
+              json.iteratorEnd();
+              return true;
+            }
           }
         }
       }
