@@ -324,6 +324,18 @@ async function loadMedications() {
 async function markAsTaken(medicationId, name, dosage) {
     if (!currentUser) return;
 
+    // Read the current alarm token from Firebase so the ESP can match this intake
+    let alarmToken = null;
+    try {
+        const alarmSnapshot = await database.ref(`alarmState/${currentUser.uid}`).once('value');
+        const alarmState = alarmSnapshot.val();
+        if (alarmState && alarmState.active && alarmState.medicationId === medicationId) {
+            alarmToken = alarmState.alarmToken;
+        }
+    } catch (e) {
+        console.warn('Could not read alarm state:', e);
+    }
+
     const intake = {
         medicationId: medicationId,
         medicationName: name,
@@ -332,6 +344,12 @@ async function markAsTaken(medicationId, name, dosage) {
         date: new Date().toLocaleDateString(),
         time: new Date().toLocaleTimeString()
     };
+
+    // Include alarmToken if an alarm is active for this medication
+    // The ESP checks for this token to confirm "Mark as Taken" happened during THIS alarm
+    if (alarmToken) {
+        intake.alarmToken = alarmToken;
+    }
 
     try {
         await database.ref(`medicationIntake/${currentUser.uid}`).push(intake);
