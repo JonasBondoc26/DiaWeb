@@ -232,14 +232,9 @@ async function addMedication() {
     if (!currentUser) return;
 
     const name = document.getElementById('medName').value;
-    let dosage = document.getElementById('medDosage').value;
+    const dosage = document.getElementById('medDosage').value;
     const time = document.getElementById('medTime').value;
     const frequency = document.getElementById('medFrequency').value;
-
-    // Handle custom dosage
-    if (dosage === 'custom') {
-        dosage = document.getElementById('customDosage').value;
-    }
 
     if (!name || !dosage || !time) {
         showAlert('dashboardAlert', 'Please fill all medication fields', 'warning');
@@ -259,8 +254,6 @@ async function addMedication() {
         await database.ref(`medications/${currentUser.uid}`).push(medication);
         document.getElementById('medName').value = '';
         document.getElementById('medDosage').value = '';
-        document.getElementById('customDosage').value = '';
-        document.getElementById('customDosageGroup').style.display = 'none';
         document.getElementById('medTime').value = '';
         showAlert('dashboardAlert', '✓ Medication added successfully', 'success');
         loadMedications();
@@ -324,18 +317,6 @@ async function loadMedications() {
 async function markAsTaken(medicationId, name, dosage) {
     if (!currentUser) return;
 
-    // Read the current alarm token from Firebase so the ESP can match this intake
-    let alarmToken = null;
-    try {
-        const alarmSnapshot = await database.ref(`alarmState/${currentUser.uid}`).once('value');
-        const alarmState = alarmSnapshot.val();
-        if (alarmState && alarmState.active && alarmState.medicationId === medicationId) {
-            alarmToken = alarmState.alarmToken;
-        }
-    } catch (e) {
-        console.warn('Could not read alarm state:', e);
-    }
-
     const intake = {
         medicationId: medicationId,
         medicationName: name,
@@ -344,12 +325,6 @@ async function markAsTaken(medicationId, name, dosage) {
         date: new Date().toLocaleDateString(),
         time: new Date().toLocaleTimeString()
     };
-
-    // Include alarmToken if an alarm is active for this medication
-    // The ESP checks for this token to confirm "Mark as Taken" happened during THIS alarm
-    if (alarmToken) {
-        intake.alarmToken = alarmToken;
-    }
 
     try {
         await database.ref(`medicationIntake/${currentUser.uid}`).push(intake);
@@ -503,7 +478,7 @@ async function checkReminders() {
     const medSnapshot = await database.ref(`medications/${currentUser.uid}`).once('value');
     medSnapshot.forEach((child) => {
         const med = child.val();
-        const medId = child.key; // Get the medication ID
+        const medId = child.key; // Get medication ID
         if (med.time === currentTime) {
             playAlertSound();
             showAlert('dashboardAlert', `💊 Time to take: ${med.name} (${med.dosage})`, 'warning');
@@ -528,7 +503,7 @@ async function sendNotificationToESP(type, message, medicationId = null) {
         sent: true
     };
     
-    // Add medication ID if provided (for medication notifications)
+    // Add medication ID for medication notifications
     if (medicationId) {
         notification.medicationId = medicationId;
     }
@@ -796,25 +771,6 @@ document.addEventListener('keydown', (e) => {
         if (modal.classList.contains('active')) {
             closeCalendarModal();
         }
-    }
-});
-
-// ===========================
-// DOSAGE DROPDOWN HANDLER
-// ===========================
-// Show/hide custom dosage input based on selection
-document.addEventListener('DOMContentLoaded', () => {
-    const dosageSelect = document.getElementById('medDosage');
-    const customDosageGroup = document.getElementById('customDosageGroup');
-    
-    if (dosageSelect) {
-        dosageSelect.addEventListener('change', (e) => {
-            if (e.target.value === 'custom') {
-                customDosageGroup.style.display = 'block';
-            } else {
-                customDosageGroup.style.display = 'none';
-            }
-        });
     }
 });
 
