@@ -35,6 +35,20 @@ function playAlertSound() {
 }
 
 // ===========================
+// CUSTOM DOSAGE TOGGLE
+// ===========================
+document.getElementById('medDosage').addEventListener('change', function () {
+    const customGroup = document.getElementById('customDosageGroup');
+
+    if (this.value === 'custom') {
+        customGroup.style.display = 'block';
+    } else {
+        customGroup.style.display = 'none';
+        document.getElementById('customDosage').value = '';
+    }
+});
+
+// ===========================
 // ALERT FUNCTIONS
 // ===========================
 function showAlert(elementId, message, type = 'success') {
@@ -232,9 +246,19 @@ async function addMedication() {
     if (!currentUser) return;
 
     const name = document.getElementById('medName').value;
-    const dosage = document.getElementById('medDosage').value;
+    let dosage = document.getElementById('medDosage').value;
     const time = document.getElementById('medTime').value;
     const frequency = document.getElementById('medFrequency').value;
+
+    // If custom selected, get manual input
+    if (dosage === 'custom') {
+        dosage = document.getElementById('customDosage').value;
+
+        if (!dosage) {
+            showAlert('dashboardAlert', 'Please enter custom dosage', 'warning');
+            return;
+        }
+    }
 
     if (!name || !dosage || !time) {
         showAlert('dashboardAlert', 'Please fill all medication fields', 'warning');
@@ -252,9 +276,14 @@ async function addMedication() {
 
     try {
         await database.ref(`medications/${currentUser.uid}`).push(medication);
+
+        // Reset fields
         document.getElementById('medName').value = '';
         document.getElementById('medDosage').value = '';
         document.getElementById('medTime').value = '';
+        document.getElementById('customDosage').value = '';
+        document.getElementById('customDosageGroup').style.display = 'none';
+
         showAlert('dashboardAlert', '✓ Medication added successfully', 'success');
         loadMedications();
     } catch (error) {
