@@ -35,20 +35,6 @@ function playAlertSound() {
 }
 
 // ===========================
-// CUSTOM DOSAGE TOGGLE
-// ===========================
-document.getElementById('medDosage').addEventListener('change', function () {
-    const customGroup = document.getElementById('customDosageGroup');
-
-    if (this.value === 'custom') {
-        customGroup.style.display = 'block';
-    } else {
-        customGroup.style.display = 'none';
-        document.getElementById('customDosage').value = '';
-    }
-});
-
-// ===========================
 // ALERT FUNCTIONS
 // ===========================
 function showAlert(elementId, message, type = 'success') {
@@ -64,6 +50,20 @@ function showAlert(elementId, message, type = 'success') {
         alertElement.classList.remove('show');
     }, 5000);
 }
+
+// ===========================
+// CUSTOM DOSAGE TOGGLE
+// ===========================
+document.getElementById('medDosage').addEventListener('change', function () {
+    const customGroup = document.getElementById('customDosageGroup');
+
+    if (this.value === 'custom') {
+        customGroup.style.display = 'block';
+    } else {
+        customGroup.style.display = 'none';
+        document.getElementById('customDosage').value = '';
+    }
+});
 
 // ===========================
 // AUTHENTICATION
@@ -250,7 +250,6 @@ async function addMedication() {
     const time = document.getElementById('medTime').value;
     const frequency = document.getElementById('medFrequency').value;
 
-    // If custom selected, get manual input
     if (dosage === 'custom') {
         dosage = document.getElementById('customDosage').value;
 
@@ -277,7 +276,6 @@ async function addMedication() {
     try {
         await database.ref(`medications/${currentUser.uid}`).push(medication);
 
-        // Reset fields
         document.getElementById('medName').value = '';
         document.getElementById('medDosage').value = '';
         document.getElementById('medTime').value = '';
@@ -356,7 +354,15 @@ async function markAsTaken(medicationId, name, dosage) {
     };
 
     try {
+        // Save medication intake
         await database.ref(`medicationIntake/${currentUser.uid}`).push(intake);
+        
+        // CLEAR ALARM FLAG - This stops the ESP8266 buzzer!
+        await database.ref(`alarmState/${currentUser.uid}`).set({
+            active: false,
+            clearedAt: new Date().toISOString()
+        });
+        
         showAlert('dashboardAlert', `✓ Marked ${name} as taken`, 'success');
         loadMedications();
         loadMedicationHistory();
@@ -507,12 +513,11 @@ async function checkReminders() {
     const medSnapshot = await database.ref(`medications/${currentUser.uid}`).once('value');
     medSnapshot.forEach((child) => {
         const med = child.val();
-        const medId = child.key; // Get medication ID
         if (med.time === currentTime) {
             playAlertSound();
             showAlert('dashboardAlert', `💊 Time to take: ${med.name} (${med.dosage})`, 'warning');
-            // Send notification to ESP8266 with medication ID
-            sendNotificationToESP('medication', `Time to take: ${med.name} (${med.dosage})`, medId);
+            // Send notification to ESP8266
+            sendNotificationToESP('medication', `Time to take: ${med.name} (${med.dosage})`);
         }
     });
 }
@@ -520,7 +525,7 @@ async function checkReminders() {
 // ===========================
 // ESP8266 NOTIFICATION SYSTEM
 // ===========================
-async function sendNotificationToESP(type, message, medicationId = null) {
+async function sendNotificationToESP(type, message) {
     if (!currentUser) return;
     
     const notificationId = database.ref().push().key;
@@ -532,11 +537,6 @@ async function sendNotificationToESP(type, message, medicationId = null) {
         sent: true
     };
     
-    // Add medication ID for medication notifications
-    if (medicationId) {
-        notification.medicationId = medicationId;
-    }
-    
     try {
         // Send to latest notification path (ESP8266 monitors this)
         await database.ref(`notifications/${currentUser.uid}/latest`).set(notification);
@@ -544,7 +544,7 @@ async function sendNotificationToESP(type, message, medicationId = null) {
         // Also store in history
         await database.ref(`notifications/${currentUser.uid}/history/${notificationId}`).set(notification);
         
-        console.log('Notification sent to ESP8266:', type, message, medicationId ? `MedID: ${medicationId}` : '');
+        console.log('Notification sent to ESP8266:', type, message);
     } catch (error) {
         console.error('Error sending notification to ESP8266:', error);
     }
