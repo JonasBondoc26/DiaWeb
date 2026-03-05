@@ -1,65 +1,29 @@
 #include <ESP8266WiFi.h>
 #include <Firebase_ESP_Client.h>
 
-// Provide the token generation process info
 #include "addons/TokenHelper.h"
-// Provide the RTDB payload printing info
 #include "addons/RTDBHelper.h"
 
 // ========================================
-// CONFIGURATION - UPDATE THESE VALUES
+// CONFIGURATION
 // ========================================
-
-// WiFi Credentials
 #define WIFI_SSID "WIFI_SSID"
 #define WIFI_PASSWORD "WIFI_PASSWORD"
-
-// Firebase Credentials
 #define API_KEY "AIzaSyC7XlN2DM38tq19LJuT8WyGhcOVcRxfZec"
 #define DATABASE_URL "https://diabetic-care-tracker-default-rtdb.asia-southeast1.firebasedatabase.app"
-#define USER_EMAIL "USER"
-#define USER_PASSWORD "PASS"
+#define USER_EMAIL "USER_EMAIL"
+#define USER_PASSWORD "USER_PASSWORD"
+
+#define BUZZER_PIN D1
+#define LED_PIN LED_BUILTIN
 
 // ========================================
-// PIN CONFIGURATION
+// BUZZER PATTERNS
 // ========================================
-#define BUZZER_PIN D1        // GPIO5 - Connect buzzer here
-#define LED_PIN LED_BUILTIN  // Built-in LED for visual feedback
-
-// ========================================
-// BUZZER PATTERNS (FASTER!)
-// ========================================
-// Pattern: {frequency, duration, pause}
-
-// Medication Reminder: FAST 3 short beeps (repeating)
 const int MEDICATION_PATTERN[][3] = {
-  {2500, 80, 40},   // Faster! 80ms beep, 40ms pause
   {2500, 80, 40},
-  {2500, 80, 500}   // 500ms pause before repeat
-};
-
-// Custom Reminder: 2 medium beeps
-const int REMINDER_PATTERN[][3] = {
-  {1500, 300, 100},
-  {1500, 300, 0}
-};
-
-// High Blood Sugar: 4 beeps
-const int HIGH_GLUCOSE_PATTERN[][3] = {
-  {2500, 150, 100},
-  {2500, 150, 100},
-  {2500, 150, 100},
-  {2500, 150, 0}
-};
-
-// Low Blood Sugar: VERY FAST urgent beeping
-const int LOW_GLUCOSE_PATTERN[][3] = {
-  {3000, 60, 30},
-  {3000, 60, 30},
-  {3000, 60, 30},
-  {3000, 60, 30},
-  {3000, 60, 30},
-  {3000, 60, 0}
+  {2500, 80, 40},
+  {2500, 80, 500}
 };
 
 // ========================================
@@ -72,49 +36,39 @@ FirebaseConfig config;
 String userId = "";
 String lastNotificationId = "";
 
-// Continuous alarm system using alarmState flag
 bool alarmActive = false;
-String currentNotificationId = "";
 unsigned long lastAlarmPlay = 0;
 unsigned long lastFlagCheck = 0;
-const unsigned long ALARM_REPEAT_INTERVAL = 700;  // Play alarm every 700ms (FASTER!)
-const unsigned long FLAG_CHECK_INTERVAL = 500;    // Check flag every 500ms (VERY RESPONSIVE!)
+const unsigned long ALARM_REPEAT_INTERVAL = 700;
+const unsigned long FLAG_CHECK_INTERVAL = 500;
 
 // ========================================
 // SETUP
 // ========================================
 void setup() {
   Serial.begin(115200);
-  Serial.println();
-  Serial.println("=================================");
-  Serial.println("DiaWeb - Flag-Based Alarm System");
-  Serial.println("=================================");
+  Serial.println("\n\n");
+  Serial.println("╔════════════════════════════════════╗");
+  Serial.println("║  DiaWeb  ");
+  Serial.println("╚════════════════════════════════════╝");
   
-  // Initialize pins
   pinMode(BUZZER_PIN, OUTPUT);
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(BUZZER_PIN, LOW);
-  digitalWrite(LED_PIN, HIGH); // LED off
+  digitalWrite(LED_PIN, HIGH);
   
-  // Connect to WiFi
   connectWiFi();
   
-  // Configure Firebase
   config.api_key = API_KEY;
   config.database_url = DATABASE_URL;
-  
-  // Sign in
   auth.user.email = USER_EMAIL;
   auth.user.password = USER_PASSWORD;
-  
-  config.token_status_callback = tokenStatusCallback;
   
   Firebase.begin(&config, &auth);
   Firebase.reconnectWiFi(true);
   
-  Serial.println("Connecting to Firebase...");
+  Serial.println("\n[SETUP] Connecting to Firebase...");
   
-  // Wait for authentication (max 30 seconds)
   unsigned long startTime = millis();
   while (!Firebase.ready() && (millis() - startTime < 30000)) {
     Serial.print(".");
@@ -122,23 +76,18 @@ void setup() {
   }
   
   if (Firebase.ready()) {
-    Serial.println();
-    Serial.println("✓ Firebase connected!");
-    
+    Serial.println("\n[SETUP] ✓ Firebase connected!");
     userId = auth.token.uid.c_str();
-    Serial.print("✓ User ID: ");
+    Serial.print("[SETUP] ✓ User ID: ");
     Serial.println(userId);
     
-    Serial.println("\nSetup complete!");
-    Serial.println("Monitoring for notifications...");
-    Serial.println();
+    // IMPORTANT: Clear any old alarm flags on startup
+    clearAlarmFlag();
     
-    // Welcome beep
+    Serial.println("\n[SETUP] Setup complete! Monitoring...\n");
     playWelcomeBeep();
   } else {
-    Serial.println();
-    Serial.println("✗ Firebase connection failed!");
-    Serial.println("Restarting in 10 seconds...");
+    Serial.println("\n[SETUP] ✗ Firebase failed! Restarting...");
     delay(10000);
     ESP.restart();
   }
@@ -148,52 +97,48 @@ void setup() {
 // MAIN LOOP
 // ========================================
 void loop() {
-  // Check WiFi
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("WiFi disconnected! Reconnecting...");
+    Serial.println("[LOOP] WiFi disconnected! Reconnecting...");
     connectWiFi();
   }
   
-  // If alarm is active - continuous operation
   if (alarmActive) {
-    
-    // Play alarm pattern repeatedly
+    // Play alarm
     if (millis() - lastAlarmPlay >= ALARM_REPEAT_INTERVAL) {
       lastAlarmPlay = millis();
       playAlarmSound();
     }
     
-    // Check alarm flag (SIMPLE READ!)
+    // Check flag
     if (millis() - lastFlagCheck >= FLAG_CHECK_INTERVAL) {
       lastFlagCheck = millis();
       
+      Serial.print("[ALARM] Checking flag... ");
+      
       if (checkAlarmFlag()) {
-        Serial.println("\n╔═══════════════════════════════════╗");
-        Serial.println("║  ✓ ALARM FLAG CLEARED!            ║");
-        Serial.println("║  ✓ Medication was taken!          ║");
-        Serial.println("║  ✓ Stopping alarm...              ║");
-        Serial.println("╚═══════════════════════════════════╝\n");
-        
+        Serial.println("FLAG CLEARED!");
+        Serial.println("\n╔════════════════════════════════════╗");
+        Serial.println("║  ✓ ALARM STOPPED!                 ║");
+        Serial.println("║  Medication was marked as taken   ║");
+        Serial.println("╚════════════════════════════════════╝\n");
         stopAlarm();
       } else {
-        Serial.print(".");  // Show checking activity
+        Serial.println("still active");
       }
     }
-    
   } else {
-    // Normal monitoring mode
     checkForNotifications();
-    delay(5000); // Check every 5 seconds when not alarming
+    delay(5000);
   }
   
-  delay(10); // Small delay to prevent watchdog
+  delay(10);
 }
 
 // ========================================
-// WIFI CONNECTION
+// WIFI
 // ========================================
 void connectWiFi() {
-  Serial.print("Connecting to WiFi: ");
+  Serial.print("[WIFI] Connecting to: ");
   Serial.println(WIFI_SSID);
   
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -206,20 +151,18 @@ void connectWiFi() {
   }
   
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.println();
-    Serial.println("✓ WiFi Connected!");
-    Serial.print("✓ IP: ");
+    Serial.println("\n[WIFI] ✓ Connected!");
+    Serial.print("[WIFI] ✓ IP: ");
     Serial.println(WiFi.localIP());
   } else {
-    Serial.println();
-    Serial.println("✗ WiFi failed! Restarting...");
+    Serial.println("\n[WIFI] ✗ Failed! Restarting...");
     delay(3000);
     ESP.restart();
   }
 }
 
 // ========================================
-// CHECK FOR NOTIFICATIONS
+// CHECK NOTIFICATIONS
 // ========================================
 void checkForNotifications() {
   if (!Firebase.ready()) return;
@@ -231,81 +174,66 @@ void checkForNotifications() {
       FirebaseJson &json = fbdo.jsonObject();
       FirebaseJsonData result;
       
-      // Get notification ID
       json.get(result, "id");
       String notificationId = result.stringValue;
       
-      // Check if new notification
       if (notificationId != lastNotificationId && notificationId.length() > 0) {
         lastNotificationId = notificationId;
         
-        // Get notification details
         json.get(result, "type");
         String notificationType = result.stringValue;
         
         json.get(result, "message");
         String message = result.stringValue;
         
-        // Display notification
-        Serial.println("\n=================================");
-        Serial.println("NEW NOTIFICATION!");
-        Serial.println("=================================");
-        Serial.print("Type: ");
+        Serial.println("\n╔════════════════════════════════════╗");
+        Serial.println("║  NEW NOTIFICATION!                ║");
+        Serial.println("╚════════════════════════════════════╝");
+        Serial.print("[NOTIF] Type: ");
         Serial.println(notificationType);
-        Serial.print("Message: ");
+        Serial.print("[NOTIF] Message: ");
         Serial.println(message);
-        Serial.print("Notification ID: ");
+        Serial.print("[NOTIF] ID: ");
         Serial.println(notificationId);
-        Serial.println("=================================\n");
         
-        // Handle notification
         if (notificationType == "medication") {
-          // Start continuous alarm for medication
-          startContinuousAlarm(notificationId);
-        } else {
-          // One-time sound for other notifications
-          playOtherNotification(notificationType);
+          startContinuousAlarm();
         }
         
-        // Acknowledge
         acknowledgeNotification(notificationId);
       }
     }
-  } else {
-    Serial.print("Failed to get notification: ");
-    Serial.println(fbdo.errorReason());
   }
 }
 
 // ========================================
-// START CONTINUOUS ALARM
+// START ALARM
 // ========================================
-void startContinuousAlarm(String notifId) {
+void startContinuousAlarm() {
   alarmActive = true;
-  currentNotificationId = notifId;
   lastAlarmPlay = 0;
   lastFlagCheck = 0;
   
-  // SET alarm flag in Firebase
-  String flagPath = "/alarmState/" + userId;
+  Serial.println("\n[ALARM] Setting alarm flag in Firebase...");
   
+  // Set flag to TRUE
+  String flagPath = "/alarmState/" + userId;
   FirebaseJson flagJson;
   flagJson.set("active", true);
-  flagJson.set("notificationId", notifId);
   flagJson.set("timestamp", String(millis()));
   
   if (Firebase.RTDB.setJSON(&fbdo, flagPath, &flagJson)) {
-    Serial.println("✓ Alarm flag SET in Firebase");
+    Serial.println("[ALARM] ✓ Flag SET to TRUE in Firebase");
+  } else {
+    Serial.print("[ALARM] ✗ Failed to set flag: ");
+    Serial.println(fbdo.errorReason());
   }
   
-  Serial.println("\n╔═══════════════════════════════════╗");
-  Serial.println("║  🔔 ALARM STARTED!                ║");
-  Serial.println("║  Buzzer will play continuously    ║");
-  Serial.println("║  until medication is marked       ║");
-  Serial.println("║  as taken in the web app.         ║");
-  Serial.println("╚═══════════════════════════════════╝\n");
+  Serial.println("\n╔════════════════════════════════════╗");
+  Serial.println("║  ALARM STARTED!                ║");
+  Serial.println("║  Checking flag every 500ms...     ║");
+  Serial.println("╚════════════════════════════════════╝\n");
   
-  // Play immediately
   playAlarmSound();
 }
 
@@ -314,132 +242,106 @@ void startContinuousAlarm(String notifId) {
 // ========================================
 void stopAlarm() {
   alarmActive = false;
-  currentNotificationId = "";
   noTone(BUZZER_PIN);
-  digitalWrite(LED_PIN, HIGH); // LED off
+  digitalWrite(LED_PIN, HIGH);
   
-  Serial.println("Returning to monitoring mode...\n");
+  Serial.println("[ALARM] Alarm stopped. Monitoring mode...\n");
 }
 
 // ========================================
-// PLAY ALARM SOUND (FOR CONTINUOUS ALARM)
-// ========================================
-void playAlarmSound() {
-  digitalWrite(LED_PIN, LOW); // LED on during alarm
-  
-  // Play medication pattern (3 FAST beeps)
-  for (int i = 0; i < 3; i++) {
-    int frequency = MEDICATION_PATTERN[i][0];
-    int duration = MEDICATION_PATTERN[i][1];
-    int pause = MEDICATION_PATTERN[i][2];
-    
-    tone(BUZZER_PIN, frequency);
-    delay(duration);
-    noTone(BUZZER_PIN);
-    
-    if (i < 2) {  // Don't delay after last beep
-      delay(pause);
-    }
-  }
-  
-  digitalWrite(LED_PIN, HIGH); // LED off
-}
-
-// ========================================
-// CHECK ALARM FLAG (SIMPLE!)
+// CHECK FLAG (WITH DEBUG)
 // ========================================
 bool checkAlarmFlag() {
-  // Check if alarm flag still exists
   String flagPath = "/alarmState/" + userId + "/active";
   
+  Serial.print("[FLAG] Reading: ");
+  Serial.print(flagPath);
+  Serial.print(" → ");
+  
   if (Firebase.RTDB.getBool(&fbdo, flagPath)) {
-    bool flagActive = fbdo.boolData();
+    bool flagValue = fbdo.boolData();
     
-    // If flag is FALSE or doesn't exist, alarm was cleared
-    if (!flagActive) {
-      return true;  // Flag cleared = stop alarm!
+    Serial.print("Value: ");
+    Serial.print(flagValue ? "TRUE" : "FALSE");
+    Serial.print(" → ");
+    
+    if (!flagValue) {
+      Serial.println("STOP!");
+      return true;  // Stop alarm!
+    } else {
+      Serial.println("Continue");
+      return false; // Continue alarm
     }
   } else {
-    // If read fails or flag doesn't exist, assume cleared
+    Serial.print("ERROR: ");
+    Serial.println(fbdo.errorReason());
+    
+    // If error contains "not exist" or "null", stop alarm
     String error = fbdo.errorReason();
     if (error.indexOf("not exist") >= 0 || error.indexOf("null") >= 0) {
-      return true;  // Flag deleted = stop alarm!
+      Serial.println("[FLAG] Flag doesn't exist → STOP!");
+      return true;
     }
     
-    Serial.print("Flag check error: ");
-    Serial.println(error);
+    return false;
   }
-  
-  return false; // Flag still active = continue alarm
 }
 
 // ========================================
-// PLAY OTHER NOTIFICATIONS (ONE-TIME)
+// CLEAR FLAG ON STARTUP
 // ========================================
-void playOtherNotification(String type) {
+void clearAlarmFlag() {
+  Serial.println("[SETUP] Clearing any old alarm flags...");
+  
+  String flagPath = "/alarmState/" + userId;
+  FirebaseJson flagJson;
+  flagJson.set("active", false);
+  flagJson.set("clearedAt", "startup");
+  
+  if (Firebase.RTDB.setJSON(&fbdo, flagPath, &flagJson)) {
+    Serial.println("[SETUP] ✓ Old flags cleared");
+  } else {
+    Serial.print("[SETUP] Note: ");
+    Serial.println(fbdo.errorReason());
+  }
+}
+
+// ========================================
+// PLAY ALARM
+// ========================================
+void playAlarmSound() {
   digitalWrite(LED_PIN, LOW);
   
-  if (type == "reminder") {
-    playPattern(REMINDER_PATTERN, 2);
-  } 
-  else if (type == "high_glucose") {
-    playPattern(HIGH_GLUCOSE_PATTERN, 4);
-  } 
-  else if (type == "low_glucose") {
-    playPattern(LOW_GLUCOSE_PATTERN, 6);
+  for (int i = 0; i < 3; i++) {
+    tone(BUZZER_PIN, MEDICATION_PATTERN[i][0]);
+    delay(MEDICATION_PATTERN[i][1]);
+    noTone(BUZZER_PIN);
+    if (i < 2) delay(MEDICATION_PATTERN[i][2]);
   }
   
   digitalWrite(LED_PIN, HIGH);
 }
 
 // ========================================
-// PLAY PATTERN (GENERIC)
-// ========================================
-void playPattern(const int pattern[][3], int size) {
-  for (int i = 0; i < size; i++) {
-    int frequency = pattern[i][0];
-    int duration = pattern[i][1];
-    int pause = pattern[i][2];
-    
-    tone(BUZZER_PIN, frequency);
-    delay(duration);
-    noTone(BUZZER_PIN);
-    delay(pause);
-  }
-}
-
-// ========================================
-// ACKNOWLEDGE NOTIFICATION
+// ACKNOWLEDGE
 // ========================================
 void acknowledgeNotification(String notificationId) {
   String path = "/notifications/" + userId + "/acknowledged/" + notificationId;
-  
   FirebaseJson json;
   json.set("acknowledgedAt", String(millis()));
   json.set("device", "ESP8266_Buzzer");
-  
   Firebase.RTDB.setJSON(&fbdo, path, &json);
 }
 
 // ========================================
-// WELCOME BEEP (3 RISING TONES)
+// WELCOME BEEP
 // ========================================
 void playWelcomeBeep() {
-  int frequencies[] = {262, 330, 392}; // C, E, G
-  
+  int frequencies[] = {262, 330, 392};
   for (int i = 0; i < 3; i++) {
     tone(BUZZER_PIN, frequencies[i]);
     delay(150);
     noTone(BUZZER_PIN);
     delay(50);
-  }
-}
-
-// ========================================
-// TOKEN STATUS CALLBACK
-// ========================================
-void tokenStatusCallback(TokenInfo info) {
-  if (info.status == token_status_error) {
-    Serial.printf("Token error: %s\n", info.error.message.c_str());
   }
 }
