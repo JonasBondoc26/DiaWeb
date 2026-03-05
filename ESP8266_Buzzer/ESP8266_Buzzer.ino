@@ -11,14 +11,14 @@
 // ========================================
 
 // WiFi Credentials
-#define WIFI_SSID "WIFI_SSID"
-#define WIFI_PASSWORD "PASSWORD"
+#define WIFI_SSID "HUAWEI-2.4G-ZUm2"
+#define WIFI_PASSWORD "qmnp4mS7"
 
 // Firebase Credentials
 #define API_KEY "AIzaSyC7XlN2DM38tq19LJuT8WyGhcOVcRxfZec"
 #define DATABASE_URL "https://diabetic-care-tracker-default-rtdb.asia-southeast1.firebasedatabase.app"
-#define USER_EMAIL "EMAIL_ADDRESS"
-#define USER_PASSWORD "PASSWORD"
+#define USER_EMAIL "jjbondoc07@gmail.com"
+#define USER_PASSWORD "IM01131062"
 
 // ========================================
 // PIN CONFIGURATION
@@ -72,14 +72,13 @@ FirebaseConfig config;
 String userId = "";
 String lastNotificationId = "";
 
-// Continuous alarm system
+// Continuous alarm system using alarmState flag
 bool alarmActive = false;
-String currentMedicationId = "";
-String currentAlarmType = "";
+String currentNotificationId = "";
 unsigned long lastAlarmPlay = 0;
-unsigned long lastIntakeCheck = 0;
+unsigned long lastFlagCheck = 0;
 const unsigned long ALARM_REPEAT_INTERVAL = 700;  // Play alarm every 700ms (FASTER!)
-const unsigned long INTAKE_CHECK_INTERVAL = 1000; // Check if taken every 1 second
+const unsigned long FLAG_CHECK_INTERVAL = 500;    // Check flag every 500ms (VERY RESPONSIVE!)
 
 // ========================================
 // SETUP
@@ -88,7 +87,7 @@ void setup() {
   Serial.begin(115200);
   Serial.println();
   Serial.println("=================================");
-  Serial.println("DiaWeb");
+  Serial.println("DiaWeb - Flag-Based Alarm System");
   Serial.println("=================================");
   
   // Initialize pins
@@ -164,13 +163,14 @@ void loop() {
       playAlarmSound();
     }
     
-    // Check if medication was taken
-    if (millis() - lastIntakeCheck >= INTAKE_CHECK_INTERVAL) {
-      lastIntakeCheck = millis();
+    // Check alarm flag (SIMPLE READ!)
+    if (millis() - lastFlagCheck >= FLAG_CHECK_INTERVAL) {
+      lastFlagCheck = millis();
       
-      if (checkMedicationTaken()) {
+      if (checkAlarmFlag()) {
         Serial.println("\n╔═══════════════════════════════════╗");
-        Serial.println("║  ✓ MEDICATION MARKED AS TAKEN!   ║");
+        Serial.println("║  ✓ ALARM FLAG CLEARED!            ║");
+        Serial.println("║  ✓ Medication was taken!          ║");
         Serial.println("║  ✓ Stopping alarm...              ║");
         Serial.println("╚═══════════════════════════════════╝\n");
         
@@ -207,12 +207,12 @@ void connectWiFi() {
   
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println();
-    Serial.println("WiFi Connected!");
-    Serial.print("IP: ");
+    Serial.println("✓ WiFi Connected!");
+    Serial.print("✓ IP: ");
     Serial.println(WiFi.localIP());
   } else {
     Serial.println();
-    Serial.println("WiFi failed! Restarting...");
+    Serial.println("✗ WiFi failed! Restarting...");
     delay(3000);
     ESP.restart();
   }
@@ -246,9 +246,6 @@ void checkForNotifications() {
         json.get(result, "message");
         String message = result.stringValue;
         
-        json.get(result, "medicationId");
-        String medicationId = result.stringValue;
-        
         // Display notification
         Serial.println("\n=================================");
         Serial.println("NEW NOTIFICATION!");
@@ -257,16 +254,14 @@ void checkForNotifications() {
         Serial.println(notificationType);
         Serial.print("Message: ");
         Serial.println(message);
-        if (medicationId.length() > 0) {
-          Serial.print("Med ID: ");
-          Serial.println(medicationId);
-        }
+        Serial.print("Notification ID: ");
+        Serial.println(notificationId);
         Serial.println("=================================\n");
         
         // Handle notification
         if (notificationType == "medication") {
           // Start continuous alarm for medication
-          startContinuousAlarm(medicationId);
+          startContinuousAlarm(notificationId);
         } else {
           // One-time sound for other notifications
           playOtherNotification(notificationType);
@@ -276,18 +271,32 @@ void checkForNotifications() {
         acknowledgeNotification(notificationId);
       }
     }
+  } else {
+    Serial.print("Failed to get notification: ");
+    Serial.println(fbdo.errorReason());
   }
 }
 
 // ========================================
 // START CONTINUOUS ALARM
 // ========================================
-void startContinuousAlarm(String medId) {
+void startContinuousAlarm(String notifId) {
   alarmActive = true;
-  currentMedicationId = medId;
-  currentAlarmType = "medication";
+  currentNotificationId = notifId;
   lastAlarmPlay = 0;
-  lastIntakeCheck = 0;
+  lastFlagCheck = 0;
+  
+  // SET alarm flag in Firebase
+  String flagPath = "/alarmState/" + userId;
+  
+  FirebaseJson flagJson;
+  flagJson.set("active", true);
+  flagJson.set("notificationId", notifId);
+  flagJson.set("timestamp", String(millis()));
+  
+  if (Firebase.RTDB.setJSON(&fbdo, flagPath, &flagJson)) {
+    Serial.println("✓ Alarm flag SET in Firebase");
+  }
   
   Serial.println("\n╔═══════════════════════════════════╗");
   Serial.println("║  🔔 ALARM STARTED!                ║");
@@ -305,8 +314,7 @@ void startContinuousAlarm(String medId) {
 // ========================================
 void stopAlarm() {
   alarmActive = false;
-  currentMedicationId = "";
-  currentAlarmType = "";
+  currentNotificationId = "";
   noTone(BUZZER_PIN);
   digitalWrite(LED_PIN, HIGH); // LED off
   
@@ -338,67 +346,31 @@ void playAlarmSound() {
 }
 
 // ========================================
-// CHECK IF MEDICATION TAKEN
+// CHECK ALARM FLAG (SIMPLE!)
 // ========================================
-bool checkMedicationTaken() {
-  if (currentMedicationId.length() == 0) {
-    return false;
-  }
+bool checkAlarmFlag() {
+  // Check if alarm flag still exists
+  String flagPath = "/alarmState/" + userId + "/active";
   
-  // Get today's date
-  String today = getTodayDate();
-  
-  // Check medicationIntake
-  String path = "/medicationIntake/" + userId;
-  
-  if (Firebase.RTDB.getJSON(&fbdo, path)) {
-    if (fbdo.dataType() == "json") {
-      FirebaseJson &json = fbdo.jsonObject();
-      
-      size_t len = json.iteratorBegin();
-      FirebaseJson::IteratorValue value;
-      
-      for (size_t i = 0; i < len; i++) {
-        value = json.valueAt(i);
-        
-        if (value.type == FirebaseJson::JSON_OBJECT) {
-          FirebaseJson intakeJson;
-          intakeJson.setJsonData(value.value);
-          
-          FirebaseJsonData dateData, medIdData;
-          
-          intakeJson.get(dateData, "date");
-          intakeJson.get(medIdData, "medicationId");
-          
-          String intakeDate = dateData.stringValue;
-          String intakeMedId = medIdData.stringValue;
-          
-          // Check if this medication was taken today
-          if (intakeMedId == currentMedicationId && intakeDate == today) {
-            json.iteratorEnd();
-            return true; // Found it! Medication was taken!
-          }
-        }
-      }
-      
-      json.iteratorEnd();
+  if (Firebase.RTDB.getBool(&fbdo, flagPath)) {
+    bool flagActive = fbdo.boolData();
+    
+    // If flag is FALSE or doesn't exist, alarm was cleared
+    if (!flagActive) {
+      return true;  // Flag cleared = stop alarm!
     }
+  } else {
+    // If read fails or flag doesn't exist, assume cleared
+    String error = fbdo.errorReason();
+    if (error.indexOf("not exist") >= 0 || error.indexOf("null") >= 0) {
+      return true;  // Flag deleted = stop alarm!
+    }
+    
+    Serial.print("Flag check error: ");
+    Serial.println(error);
   }
   
-  return false; // Not taken yet
-}
-
-// ========================================
-// GET TODAY'S DATE (MM/DD/YYYY format)
-// ========================================
-String getTodayDate() {
-  // Get current time from Firebase timestamp
-  // For simplicity, we check for ANY intake today
-  // The web app sets the proper date format
-  
-  // Alternative: Use NTP for precise date
-  // For now, return empty to match any recent intake
-  return "";
+  return false; // Flag still active = continue alarm
 }
 
 // ========================================
